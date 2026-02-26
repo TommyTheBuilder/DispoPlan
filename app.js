@@ -86,6 +86,14 @@ function bindEvents() {
     document.getElementById("tourStatusDialog").close();
   });
 
+  document.getElementById("deleteTourBtn").addEventListener("click", () => {
+    if (!selectedTourId) return;
+    state.weeks[state.currentWeekKey].tours = getCurrentWeekTours().filter((tour) => tour.id !== selectedTourId);
+    selectedTourId = null;
+    document.getElementById("tourStatusDialog").close();
+    persistAndRender();
+  });
+
   document.getElementById("tourStatusForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const tour = getCurrentWeekTours().find((item) => item.id === selectedTourId);
@@ -191,7 +199,7 @@ function renderBoard() {
     .map((truckRow) => {
       const toursForTruck = tours.filter((tour) => getTourPlate(tour) === truckRow.plate);
       const cells = weekDays.map((item) => {
-        const dayTours = toursForTruck.filter((tour) => isTourActiveOnDate(tour, item.dateIso));
+        const dayTours = toursForTruck.filter((tour) => tour.fromDate === item.dateIso);
         const emptyHint = dayTours.length === 0 ? renderTruckEmptyHint(toursForTruck, item.dateIso) : "";
         return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-date="${item.dateIso}">
           ${dayTours.map((tour) => renderCard(tour)).join("")}
@@ -222,7 +230,7 @@ function renderCard(tour) {
       <small>${new Date(tour.updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</small>
     </div>
     <strong>${tour.title}</strong>
-    <div class="small">${formatLongDate(tour.fromDate)} ${tour.loadLocation} → ${formatLongDate(tour.toDate)} ${tour.unloadLocation}</div>
+    <div class="small">${formatLongDate(tour.fromDate)} ${tour.loadLocation} → ${tour.unloadLocation}</div>
     <div class="small">${tour.notes || ""}</div>
     ${secondaryInfo.length > 0 ? `<div class="small">${secondaryInfo.join(" · ")}</div>` : ""}
   </article>`;
@@ -230,14 +238,11 @@ function renderCard(tour) {
 
 function renderTruckEmptyHint(toursForTruck, dateIso) {
   const previousTour = toursForTruck
-    .filter((tour) => tour.toDate < dateIso)
-    .sort((a, b) => b.toDate.localeCompare(a.toDate))[0];
+    .filter((tour) => tour.toDate === dateIso)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   if (!previousTour) return "";
 
-  const emptyFromDate = addDaysIso(previousTour.toDate, 1);
-  if (dateIso !== emptyFromDate) return "";
-
-  return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer ab ${formatLongDate(emptyFromDate)} in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
+  return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer am ${formatLongDate(previousTour.toDate)} in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
 }
 
 function attachCardSelectionEvents() {
