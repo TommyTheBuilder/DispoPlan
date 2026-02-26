@@ -104,8 +104,33 @@
           <input name="stops" placeholder="z.B. Linz -> Graz; Graz -> Wien" />
         </label>
         <label>Notiz <textarea name="notes" placeholder="Freie Beschreibung"></textarea></label>
+        <label class="check-row"><input name="customerStatusRequired" type="checkbox" /> Kundenstatus erforderlich</label>
         <menu>
           <button type="button" class="btn" id="cancelTourDialog">Abbrechen</button>
+          <button class="btn btn-primary" value="default">Speichern</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="tourStatusDialog">
+      <form id="tourStatusForm" method="dialog" class="dialog-form">
+        <h3 id="tourStatusTitle">Tour bearbeiten</h3>
+        <label>Status
+          <select name="status" id="editTourStatus">
+            <option value="planned">Geplant</option>
+            <option value="problem">Problem</option>
+            <option value="water">Wasser</option>
+            <option value="done">Erledigt</option>
+          </select>
+        </label>
+        <label>Ankunft Lade-/Entladestelle
+          <input type="time" name="arrivalTime" id="editArrivalTime" />
+        </label>
+        <label class="check-row"><input type="checkbox" name="driverNotified" id="editDriverNotified" /> Auftrag an Fahrer gesendet</label>
+        <label class="check-row"><input type="checkbox" name="customerStatusRequired" id="editCustomerStatusRequired" /> Kundenstatus erforderlich</label>
+        <label class="check-row"><input type="checkbox" name="customerStatusDone" id="editCustomerStatusDone" /> Kundenstatus gemeldet</label>
+        <menu>
+          <button type="button" class="btn" id="cancelTourStatusDialog">Abbrechen</button>
           <button class="btn btn-primary" value="default">Speichern</button>
         </menu>
       </form>

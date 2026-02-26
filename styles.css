@@ -104,6 +104,10 @@ textarea { min-height: 70px; }
 .status-problem { background: var(--problem); }
 .status-water { background: var(--water); }
 .status-done { background: var(--done); }
+.stat-open {
+  background: #ffe1e1;
+  border: 1px solid #f1b4b4;
+}
 .small { color: var(--muted); font-size: 0.85rem; }
 
 .management-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
@@ -127,6 +131,12 @@ textarea { min-height: 70px; }
 }
 .btn-primary { background: #1d8dff; color: #fff; border-color: #1d8dff; }
 .btn-ghost { background: #f4f7fd; }
+.check-row {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.check-row input { width: auto; }
 
 dialog { border: 1px solid #ccd6eb; border-radius: 10px; }
 .dialog-form { min-width: 460px; display: grid; gap: 10px; }

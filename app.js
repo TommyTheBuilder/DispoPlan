@@ -21,6 +21,7 @@ const initialState = {
 };
 
 let state = loadState();
+let selectedTourId = null;
 ensureWeekExists(state.currentWeekKey);
 seedExampleTours(state.currentWeekKey);
 saveState();
@@ -48,18 +49,53 @@ function bindEvents() {
     const formData = new FormData(event.target);
     const tour = {
       id: crypto.randomUUID(),
-      title: formData.get("title"),
-      entrepreneurId: formData.get("entrepreneurId"),
+      title: String(formData.get("title") || ""),
+      entrepreneurId: String(formData.get("entrepreneurId") || ""),
       dayIndex: Number(formData.get("dayIndex")),
-      status: formData.get("status"),
+      status: String(formData.get("status") || "planned"),
       stops: String(formData.get("stops") || "").split(";").map((item) => item.trim()).filter(Boolean),
-      notes: formData.get("notes"),
+      notes: String(formData.get("notes") || ""),
+      customerStatusRequired: formData.get("customerStatusRequired") === "on",
+      customerStatusReportedAt: null,
+      arrivalTime: "",
+      driverNotified: false,
       updatedAt: new Date().toISOString(),
     };
     state.weeks[state.currentWeekKey].tours.push(tour);
     persistAndRender();
     event.target.reset();
     document.getElementById("tourDialog").close();
+  });
+
+  document.getElementById("cancelTourStatusDialog").addEventListener("click", () => {
+    selectedTourId = null;
+    document.getElementById("tourStatusDialog").close();
+  });
+
+  document.getElementById("tourStatusForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const tour = getCurrentWeekTours().find((item) => item.id === selectedTourId);
+    if (!tour) return;
+
+    const formData = new FormData(event.target);
+    tour.status = String(formData.get("status") || "planned");
+    tour.arrivalTime = String(formData.get("arrivalTime") || "");
+    tour.driverNotified = formData.get("driverNotified") === "on";
+    tour.customerStatusRequired = formData.get("customerStatusRequired") === "on";
+
+    const statusDone = formData.get("customerStatusDone") === "on";
+    if (!tour.customerStatusRequired) {
+      tour.customerStatusReportedAt = null;
+    } else if (statusDone) {
+      tour.customerStatusReportedAt = tour.customerStatusReportedAt || new Date().toISOString();
+    } else {
+      tour.customerStatusReportedAt = null;
+    }
+
+    tour.updatedAt = new Date().toISOString();
+    selectedTourId = null;
+    document.getElementById("tourStatusDialog").close();
+    persistAndRender();
   });
 
   document.getElementById("searchInput").addEventListener("input", render);
@@ -71,8 +107,8 @@ function bindEvents() {
     const formData = new FormData(event.target);
     state.entrepreneurs.push({
       id: crypto.randomUUID(),
-      name: formData.get("name"),
-      plate: formData.get("plate"),
+      name: String(formData.get("name") || ""),
+      plate: String(formData.get("plate") || ""),
     });
     persistAndRender();
     event.target.reset();
@@ -81,7 +117,7 @@ function bindEvents() {
   document.getElementById("accountForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
-    state.accounts.push({ id: crypto.randomUUID(), username: formData.get("username"), role: formData.get("role") });
+    state.accounts.push({ id: crypto.randomUUID(), username: String(formData.get("username") || ""), role: String(formData.get("role") || "") });
     persistAndRender();
     event.target.reset();
   });
@@ -121,9 +157,13 @@ function renderStats() {
     acc[tour.status] = (acc[tour.status] || 0) + 1;
     return acc;
   }, {});
+  const openCount = tours.filter((tour) => tour.status !== "done").length;
+  const openCustomerStatusCount = tours.filter((tour) => tour.customerStatusRequired && !tour.customerStatusReportedAt).length;
 
   stats.innerHTML = Object.entries(STATUS_META)
+    .filter(([key]) => key !== "water")
     .map(([key, meta]) => `<div class="stat ${meta.cls}">${counts[key] || 0}<small>${meta.label}</small></div>`)
+    .concat(`<div class="stat stat-open">${openCount}<small>Offen zu erledigen · Kundenstatus offen: ${openCustomerStatusCount}</small></div>`)
     .join("");
 }
 
@@ -131,8 +171,9 @@ function renderBoard() {
   const weekInfo = parseWeekKey(state.currentWeekKey);
   const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
   const tours = getFilteredTours();
+  const truckRows = getTruckRows();
 
-  const headerCells = ['<div class="header-cell">Unternehmer</div>']
+  const headerCells = ['<div class="header-cell">Kennzeichen / LKW</div>']
     .concat(DAY_NAMES.map((name, idx) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + idx);
@@ -140,36 +181,90 @@ function renderBoard() {
     }))
     .join("");
 
-  const entrepreneurRows = state.entrepreneurs
-    .map((entrepreneur) => {
+  const entrepreneurRows = truckRows
+    .map((truckRow) => {
       const cells = DAY_NAMES.map((_, dayIndex) => {
-        const dayTours = tours.filter((tour) => tour.entrepreneurId === entrepreneur.id && tour.dayIndex === dayIndex);
-        return `<div class="day-cell" data-entrepreneur-id="${entrepreneur.id}" data-day-index="${dayIndex}">
+        const dayTours = tours.filter((tour) => getTourPlate(tour) === truckRow.plate && tour.dayIndex === dayIndex);
+        return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-day-index="${dayIndex}">
           ${dayTours.map((tour) => renderCard(tour)).join("") || ""}
         </div>`;
       }).join("");
 
-      return `<div class="row-label"><strong>${entrepreneur.name}</strong><div class="plate">${entrepreneur.plate}</div></div>${cells}`;
+      return `<div class="row-label"><strong>${truckRow.plate}</strong><div class="plate">${truckRow.entrepreneurNames}</div></div>${cells}`;
     })
     .join("");
 
   board.innerHTML = headerCells + entrepreneurRows;
   attachDndEvents();
+  attachCardSelectionEvents();
 }
 
 function renderCard(tour) {
   const meta = STATUS_META[tour.status] || STATUS_META.planned;
-  const entrepreneur = state.entrepreneurs.find((item) => item.id === tour.entrepreneurId);
+  const secondaryInfo = [];
+  if (tour.arrivalTime) secondaryInfo.push(`Ankunft: ${tour.arrivalTime}`);
+  if (tour.driverNotified) secondaryInfo.push("Fahrer informiert");
+  if (tour.customerStatusRequired && !tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus offen");
+  if (tour.customerStatusRequired && tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus gemeldet");
+
   return `<article class="card" draggable="true" data-tour-id="${tour.id}">
     <div class="card-header">
       <span class="status ${meta.cls}">${meta.label}</span>
       <small>${new Date(tour.updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</small>
     </div>
     <strong>${tour.title}</strong>
-    <div class="small">${entrepreneur?.plate || "ohne Kennzeichen"}</div>
     <div>${(tour.stops || []).slice(0, 2).join(" → ") || "Freies Feld"}</div>
     <div class="small">${tour.notes || ""}</div>
+    ${secondaryInfo.length > 0 ? `<div class="small">${secondaryInfo.join(" · ")}</div>` : ""}
   </article>`;
+}
+
+function attachCardSelectionEvents() {
+  document.querySelectorAll(".card").forEach((card) => {
+    card.addEventListener("click", () => openTourStatusDialog(card.dataset.tourId));
+  });
+}
+
+function openTourStatusDialog(tourId) {
+  const tour = getCurrentWeekTours().find((item) => item.id === tourId);
+  if (!tour) return;
+  selectedTourId = tour.id;
+
+  document.getElementById("tourStatusTitle").textContent = `Tour bearbeiten: ${tour.title}`;
+  document.getElementById("editTourStatus").value = tour.status;
+  document.getElementById("editArrivalTime").value = tour.arrivalTime || "";
+  document.getElementById("editDriverNotified").checked = Boolean(tour.driverNotified);
+  document.getElementById("editCustomerStatusRequired").checked = Boolean(tour.customerStatusRequired);
+  document.getElementById("editCustomerStatusDone").checked = Boolean(tour.customerStatusReportedAt);
+
+  document.getElementById("tourStatusDialog").showModal();
+}
+
+function getTruckRows() {
+  const trucksByPlate = new Map();
+
+  state.entrepreneurs.forEach((entrepreneur) => {
+    const plate = entrepreneur.plate || "ohne Kennzeichen";
+    if (!trucksByPlate.has(plate)) {
+      trucksByPlate.set(plate, {
+        plate,
+        primaryEntrepreneurId: entrepreneur.id,
+        entrepreneurNames: new Set([entrepreneur.name]),
+      });
+      return;
+    }
+    trucksByPlate.get(plate).entrepreneurNames.add(entrepreneur.name);
+  });
+
+  return Array.from(trucksByPlate.values()).map((row) => ({
+    ...row,
+    entrepreneurNames: Array.from(row.entrepreneurNames).join(", "),
+  }));
+}
+
+function getTourPlate(tour) {
+  const entrepreneur = state.entrepreneurs.find((item) => item.id === tour.entrepreneurId);
+  return entrepreneur?.plate || "ohne Kennzeichen";
 }
 
 function attachDndEvents() {
@@ -189,7 +284,7 @@ function attachDndEvents() {
       event.preventDefault();
       cell.classList.remove("drag-over");
       const tourId = event.dataTransfer.getData("text/tour-id");
-      const tour = state.weeks[state.currentWeekKey].tours.find((item) => item.id === tourId);
+      const tour = getCurrentWeekTours().find((item) => item.id === tourId);
       if (!tour) return;
       tour.dayIndex = Number(cell.dataset.dayIndex);
       tour.entrepreneurId = cell.dataset.entrepreneurId;
@@ -245,7 +340,7 @@ function getFilteredTours() {
   const status = document.getElementById("statusFilter").value;
   const entrepreneurId = entrepreneurFilter.value;
 
-  return state.weeks[state.currentWeekKey].tours.filter((tour) => {
+  return getCurrentWeekTours().filter((tour) => {
     const entrepreneur = state.entrepreneurs.find((item) => item.id === tour.entrepreneurId);
     const haystack = `${tour.title} ${tour.notes} ${(tour.stops || []).join(" ")} ${entrepreneur?.name || ""} ${entrepreneur?.plate || ""}`.toLowerCase();
     const matchesSearch = !search || haystack.includes(search);
@@ -255,15 +350,40 @@ function getFilteredTours() {
   });
 }
 
+function getCurrentWeekTours() {
+  ensureWeekExists(state.currentWeekKey);
+  return state.weeks[state.currentWeekKey].tours;
+}
+
+function normalizeTour(tour) {
+  return {
+    ...tour,
+    customerStatusRequired: Boolean(tour.customerStatusRequired),
+    customerStatusReportedAt: tour.customerStatusReportedAt || null,
+    arrivalTime: tour.arrivalTime || "",
+    driverNotified: Boolean(tour.driverNotified),
+  };
+}
+
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return structuredClone(initialState);
   try {
     const parsed = JSON.parse(raw);
+    const weeks = Object.fromEntries(
+      Object.entries(parsed.weeks || {}).map(([key, value]) => [
+        key,
+        {
+          ...value,
+          tours: (value.tours || []).map(normalizeTour),
+        },
+      ]),
+    );
+
     return {
       ...structuredClone(initialState),
       ...parsed,
-      weeks: parsed.weeks || {},
+      weeks,
       entrepreneurs: parsed.entrepreneurs || [],
       accounts: parsed.accounts || [],
       vehicles: parsed.vehicles || [],
@@ -287,6 +407,7 @@ function ensureWeekExists(weekKey) {
   if (!state.weeks[weekKey]) {
     state.weeks[weekKey] = { tours: [], createdAt: new Date().toISOString() };
   }
+  state.weeks[weekKey].tours = (state.weeks[weekKey].tours || []).map(normalizeTour);
 }
 
 function seedExampleTours(weekKey) {
@@ -300,6 +421,10 @@ function seedExampleTours(weekKey) {
       status: "water",
       stops: ["Linz", "Gärchzing"],
       notes: "Trailer 24t",
+      customerStatusRequired: true,
+      customerStatusReportedAt: null,
+      arrivalTime: "",
+      driverNotified: false,
       updatedAt: new Date().toISOString(),
     },
     {
@@ -310,6 +435,10 @@ function seedExampleTours(weekKey) {
       status: "problem",
       stops: ["Dresden", "Freilassing"],
       notes: "Fahrer bestätigen",
+      customerStatusRequired: false,
+      customerStatusReportedAt: null,
+      arrivalTime: "",
+      driverNotified: false,
       updatedAt: new Date().toISOString(),
     },
   );
