@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DispoPlan – Wochenboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Disposition · <span id="currentWeekLabel">KW</span></h1>
+          <p class="muted">Desktop-First Wochenplanung für Touren</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="prevWeekBtn" class="btn btn-ghost">◀ Vorwoche</button>
+          <button id="nextWeekBtn" class="btn btn-ghost">Nächste Woche ▶</button>
+          <button id="newTourBtn" class="btn btn-primary">+ Neue Tour</button>
+        </div>
+      </header>
+
+      <section class="toolbar">
+        <label>
+          Suche
+          <input id="searchInput" type="search" placeholder="Unternehmer / Kennzeichen / Tour" />
+        </label>
+        <label>
+          Status
+          <select id="statusFilter">
+            <option value="all">Alle</option>
+            <option value="planned">Geplant</option>
+            <option value="problem">Problem</option>
+            <option value="water">Wasser</option>
+            <option value="done">Erledigt</option>
+          </select>
+        </label>
+        <label>
+          Unternehmer
+          <select id="entrepreneurFilter">
+            <option value="all">Alle</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="stats" id="stats"></section>
+
+      <main class="board-wrap">
+        <div class="board" id="board"></div>
+      </main>
+
+      <section class="management-grid">
+        <article class="panel">
+          <h2>Datenbank: Unternehmer + Kennzeichen</h2>
+          <form id="entrepreneurForm" class="inline-form">
+            <input name="name" placeholder="Unternehmer" required />
+            <input name="plate" placeholder="Kennzeichen" required />
+            <button class="btn btn-primary" type="submit">Speichern</button>
+          </form>
+          <ul id="entrepreneurList" class="list"></ul>
+        </article>
+
+        <article class="panel">
+          <h2>Account-Verwaltung</h2>
+          <form id="accountForm" class="inline-form">
+            <input name="username" placeholder="Benutzername" required />
+            <select name="role">
+              <option>Dispatcher</option>
+              <option>Admin</option>
+              <option>Leser</option>
+            </select>
+            <button class="btn btn-primary" type="submit">Anlegen</button>
+          </form>
+          <ul id="accountList" class="list"></ul>
+        </article>
+      </section>
+    </div>
+
+    <dialog id="tourDialog">
+      <form id="tourForm" method="dialog" class="dialog-form">
+        <h3>Tour anlegen</h3>
+        <label>Titel <input name="title" required /></label>
+        <label>Unternehmer <select name="entrepreneurId" required id="tourEntrepreneur"></select></label>
+        <label>Tag
+          <select name="dayIndex">
+            <option value="0">Montag</option>
+            <option value="1">Dienstag</option>
+            <option value="2">Mittwoch</option>
+            <option value="3">Donnerstag</option>
+            <option value="4">Freitag</option>
+            <option value="5">Samstag</option>
+            <option value="6">Sonntag</option>
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="planned">Geplant</option>
+            <option value="problem">Problem</option>
+            <option value="water">Wasser</option>
+            <option value="done">Erledigt</option>
+          </select>
+        </label>
+        <label>Stops (frei beschreibbar, mit ; trennen)
+          <input name="stops" placeholder="z.B. Linz -> Graz; Graz -> Wien" />
+        </label>
+        <label>Notiz <textarea name="notes" placeholder="Freie Beschreibung"></textarea></label>
+        <menu>
+          <button type="button" class="btn" id="cancelTourDialog">Abbrechen</button>
+          <button class="btn btn-primary" value="default">Speichern</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
