@@ -24,6 +24,9 @@ const initialState = {
   weeks: {},
 };
 
+const defaultDepartmentId = initialState.departments[0]?.id || "";
+initialState.entrepreneurs = initialState.entrepreneurs.map((item) => ({ ...item, departmentId: defaultDepartmentId }));
+
 let state = loadState();
 let selectedTourId = null;
 ensureWeekExists(state.currentWeekKey);
@@ -276,10 +279,15 @@ function openTourStatusDialog(tourId) {
   setTimeout(() => document.getElementById("editArrivalTime").focus(), 0);
 }
 
+function getEntrepreneursForSelectedDepartment() {
+  if (state.currentDepartmentId === "all") return state.entrepreneurs;
+  return state.entrepreneurs.filter((item) => item.departmentId === state.currentDepartmentId);
+}
+
 function getTruckRows() {
   const trucksByPlate = new Map();
 
-  state.entrepreneurs.forEach((entrepreneur) => {
+  getEntrepreneursForSelectedDepartment().forEach((entrepreneur) => {
     const plate = entrepreneur.plate || "ohne Kennzeichen";
     if (!trucksByPlate.has(plate)) {
       trucksByPlate.set(plate, {
@@ -384,8 +392,9 @@ function renderAccounts() {
 
 function hydrateEntrepreneurFilter() {
   const currentValue = entrepreneurFilter.value;
-  entrepreneurFilter.innerHTML = '<option value="all">Alle</option>' + state.entrepreneurs.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
-  entrepreneurFilter.value = state.entrepreneurs.some((item) => item.id === currentValue) ? currentValue : "all";
+  const entrepreneurs = getEntrepreneursForSelectedDepartment();
+  entrepreneurFilter.innerHTML = '<option value="all">Alle</option>' + entrepreneurs.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+  entrepreneurFilter.value = entrepreneurs.some((item) => item.id === currentValue) ? currentValue : "all";
 }
 
 function hydrateDepartmentFilter() {
@@ -397,7 +406,8 @@ function hydrateDepartmentFilter() {
 
 function hydrateEntrepreneurOptions() {
   const target = document.getElementById("tourEntrepreneur");
-  target.innerHTML = state.entrepreneurs.map((item) => `<option value="${item.id}">${item.name} · ${item.plate}</option>`).join("");
+  const entrepreneurs = getEntrepreneursForSelectedDepartment();
+  target.innerHTML = entrepreneurs.map((item) => `<option value="${item.id}">${item.name} · ${item.plate}</option>`).join("");
 }
 
 function hydrateDepartmentOptions() {
@@ -436,6 +446,14 @@ function normalizeStatus(status) {
   return status;
 }
 
+function normalizeEntrepreneur(item, departments) {
+  const fallbackDepartmentId = departments[0]?.id || "";
+  return {
+    ...item,
+    departmentId: departments.some((dep) => dep.id === item.departmentId) ? item.departmentId : fallbackDepartmentId,
+  };
+}
+
 function normalizeTour(tour, weekKey) {
   const weekInfo = parseWeekKey(weekKey);
   const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
@@ -470,7 +488,7 @@ function loadState() {
       ...structuredClone(initialState),
       ...parsed,
       departments,
-      entrepreneurs: parsed.entrepreneurs || [],
+      entrepreneurs: (parsed.entrepreneurs?.length ? parsed.entrepreneurs : structuredClone(initialState.entrepreneurs)).map((item) => normalizeEntrepreneur(item, departments)),
       accounts: parsed.accounts || [],
       vehicles: parsed.vehicles || [],
       weeks: {},

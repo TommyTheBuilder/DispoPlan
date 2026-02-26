@@ -159,3 +159,7 @@ menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 0
 
 .management-grid.two-col { grid-template-columns: repeat(2, minmax(320px, 1fr)); }
 .management-grid.one-col { grid-template-columns: 1fr; }
+
+.entrepreneur-form { grid-template-columns: 1fr 1fr 1fr auto; }
+.row-actions { display: flex; gap: 8px; align-items: center; }
+.row-actions select { min-width: 160px; }

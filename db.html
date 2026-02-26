@@ -22,9 +22,10 @@
       <section class="management-grid two-col">
         <article class="panel">
           <h2>Unternehmer + Kennzeichen</h2>
-          <form id="entrepreneurForm" class="inline-form">
+          <form id="entrepreneurForm" class="inline-form entrepreneur-form">
             <input name="name" placeholder="Unternehmer" required />
             <input name="plate" placeholder="Kennzeichen" required />
+            <select name="departmentId" id="entrepreneurDepartment" required></select>
             <button class="btn btn-primary" type="submit">Speichern</button>
           </form>
           <ul id="entrepreneurList" class="list"></ul>
@@ -47,11 +48,49 @@
       state.entrepreneurs = state.entrepreneurs || [];
       state.departments = state.departments || [];
       state.weeks = state.weeks || {};
+      if (!state.departments.length) state.departments.push({ id: crypto.randomUUID(), name: 'Standard' });
 
       function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function getDepartmentName(id) {
+        return state.departments.find((d) => d.id === id)?.name || 'ohne Abteilung';
+      }
+      function normalizeEntrepreneurs() {
+        const fallback = state.departments[0]?.id || '';
+        state.entrepreneurs = state.entrepreneurs.map((e) => ({
+          ...e,
+          departmentId: state.departments.some((d) => d.id === e.departmentId) ? e.departmentId : fallback,
+        }));
+      }
+      function hydrateEntrepreneurDepartmentSelect() {
+        const select = document.getElementById('entrepreneurDepartment');
+        select.innerHTML = state.departments.map((d) => `<option value="${d.id}">${d.name}</option>`).join('');
+      }
+
       function render() {
+        normalizeEntrepreneurs();
+        hydrateEntrepreneurDepartmentSelect();
+
         const eList = document.getElementById('entrepreneurList');
-        eList.innerHTML = state.entrepreneurs.map((e) => `<li><span>${e.name} · ${e.plate}</span><button class="btn" data-rm-e="${e.id}">Löschen</button></li>`).join('');
+        eList.innerHTML = state.entrepreneurs.map((e) => `
+          <li>
+            <span>${e.name} · ${e.plate} · ${getDepartmentName(e.departmentId)}</span>
+            <div class="row-actions">
+              <select data-set-department="${e.id}">
+                ${state.departments.map((d) => `<option value="${d.id}" ${d.id === e.departmentId ? 'selected' : ''}>${d.name}</option>`).join('')}
+              </select>
+              <button class="btn" data-rm-e="${e.id}">Löschen</button>
+            </div>
+          </li>
+        `).join('');
+
+        eList.querySelectorAll('[data-set-department]').forEach((select) => select.addEventListener('change', () => {
+          const entrepreneur = state.entrepreneurs.find((item) => item.id === select.dataset.setDepartment);
+          if (!entrepreneur) return;
+          entrepreneur.departmentId = select.value;
+          save();
+          render();
+        }));
+
         eList.querySelectorAll('[data-rm-e]').forEach((btn) => btn.addEventListener('click', () => {
           const id = btn.dataset.rmE;
           state.entrepreneurs = state.entrepreneurs.filter((e) => e.id !== id);
@@ -64,8 +103,9 @@
         dList.querySelectorAll('[data-rm-d]').forEach((btn) => btn.addEventListener('click', () => {
           const id = btn.dataset.rmD;
           state.departments = state.departments.filter((d) => d.id !== id);
-          Object.values(state.weeks).forEach((w) => w.tours = (w.tours || []).filter((t) => t.departmentId !== id));
           if (!state.departments.length) state.departments.push({ id: crypto.randomUUID(), name: 'Standard' });
+          normalizeEntrepreneurs();
+          Object.values(state.weeks).forEach((w) => w.tours = (w.tours || []).filter((t) => t.departmentId !== id));
           save(); render();
         }));
       }
@@ -73,7 +113,12 @@
       document.getElementById('entrepreneurForm').addEventListener('submit', (event) => {
         event.preventDefault();
         const formData = new FormData(event.target);
-        state.entrepreneurs.push({ id: crypto.randomUUID(), name: String(formData.get('name') || ''), plate: String(formData.get('plate') || '') });
+        state.entrepreneurs.push({
+          id: crypto.randomUUID(),
+          name: String(formData.get('name') || ''),
+          plate: String(formData.get('plate') || ''),
+          departmentId: String(formData.get('departmentId') || state.departments[0]?.id || ''),
+        });
         save(); event.target.reset(); render();
       });
 
