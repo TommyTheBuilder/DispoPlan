@@ -75,6 +75,8 @@ function bindEvents() {
       notes: String(formData.get("notes") || ""),
       customerStatusRequired: formData.get("customerStatusRequired") === "on",
       customerStatusReportedAt: null,
+      palletExchangeRequired: formData.get("palletExchangeRequired") === "on",
+      additionalInfo: String(formData.get("additionalInfo") || ""),
       arrivalTime: "",
       updatedAt: new Date().toISOString(),
     };
@@ -114,6 +116,8 @@ function bindEvents() {
     tour.unloadLocation = String(formData.get("unloadLocation") || "");
     tour.arrivalTime = String(formData.get("arrivalTime") || "");
     tour.customerStatusRequired = formData.get("customerStatusRequired") === "on";
+    tour.palletExchangeRequired = formData.get("palletExchangeRequired") === "on";
+    tour.additionalInfo = String(formData.get("additionalInfo") || "");
 
     const statusDone = formData.get("customerStatusDone") === "on";
     if (!tour.customerStatusRequired) {
@@ -202,7 +206,7 @@ function renderBoard() {
     .map((truckRow) => {
       const toursForTruck = tours.filter((tour) => getTourPlate(tour) === truckRow.plate);
       const cells = weekDays.map((item) => {
-        const dayTours = toursForTruck.filter((tour) => tour.fromDate === item.dateIso);
+        const dayTours = toursForTruck.filter((tour) => tour.fromDate === item.dateIso).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
         const emptyHint = dayTours.length === 0 ? renderTruckEmptyHint(toursForTruck, item.dateIso) : "";
         return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-date="${item.dateIso}">
           ${dayTours.map((tour) => renderCard(tour)).join("")}
@@ -226,6 +230,7 @@ function renderCard(tour) {
   if (tour.arrivalTime) secondaryInfo.push(`Ankunft: ${tour.arrivalTime}`);
   if (tour.customerStatusRequired && !tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus offen");
   if (tour.customerStatusRequired && tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus gemeldet");
+  if (tour.palletExchangeRequired) secondaryInfo.push("Palettentausch erforderlich");
 
   return `<article class="card" draggable="true" data-tour-id="${tour.id}">
     <div class="card-header">
@@ -235,6 +240,7 @@ function renderCard(tour) {
     <strong>${tour.title}</strong>
     <div class="small">${formatLongDate(tour.fromDate)} ${tour.loadLocation} → ${tour.unloadLocation}</div>
     <div class="small">${tour.notes || ""}</div>
+    ${tour.additionalInfo ? `<div class="small">Info: ${tour.additionalInfo}</div>` : ""}
     ${secondaryInfo.length > 0 ? `<div class="small">${secondaryInfo.join(" · ")}</div>` : ""}
   </article>`;
 }
@@ -274,6 +280,8 @@ function openTourStatusDialog(tourId) {
   document.getElementById("editArrivalTime").value = tour.arrivalTime || "";
   document.getElementById("editCustomerStatusRequired").checked = Boolean(tour.customerStatusRequired);
   document.getElementById("editCustomerStatusDone").checked = Boolean(tour.customerStatusReportedAt);
+  document.getElementById("editPalletExchangeRequired").checked = Boolean(tour.palletExchangeRequired);
+  document.getElementById("editAdditionalInfo").value = tour.additionalInfo || "";
 
   document.getElementById("tourStatusDialog").showModal();
   setTimeout(() => document.getElementById("editArrivalTime").focus(), 0);
@@ -332,6 +340,7 @@ function attachDndEvents() {
       if (!tour) return;
 
       const startDate = cell.dataset.date;
+      if (!startDate) return;
       const durationDays = Math.max(0, getDateDiffDays(tour.fromDate, tour.toDate));
       tour.fromDate = startDate;
       tour.toDate = addDaysIso(startDate, durationDays);
@@ -473,6 +482,8 @@ function normalizeTour(tour, weekKey) {
     unloadLocation: tour.unloadLocation || (tour.stops?.[1] || ""),
     customerStatusRequired: Boolean(tour.customerStatusRequired),
     customerStatusReportedAt: tour.customerStatusReportedAt || null,
+    palletExchangeRequired: Boolean(tour.palletExchangeRequired),
+    additionalInfo: tour.additionalInfo || "",
     arrivalTime: tour.arrivalTime || "",
   };
 }
@@ -558,6 +569,8 @@ function seedExampleTours(weekKey) {
       notes: "Trailer 24t",
       customerStatusRequired: true,
       customerStatusReportedAt: null,
+      palletExchangeRequired: false,
+      additionalInfo: "",
       arrivalTime: "",
       updatedAt: new Date().toISOString(),
     },
@@ -574,6 +587,8 @@ function seedExampleTours(weekKey) {
       notes: "Fahrer bestätigen",
       customerStatusRequired: false,
       customerStatusReportedAt: null,
+      palletExchangeRequired: false,
+      additionalInfo: "",
       arrivalTime: "",
       updatedAt: new Date().toISOString(),
     },
