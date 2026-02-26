@@ -220,10 +220,13 @@ function renderBoard() {
 
   const rowHtml = truckRows
     .map((truckRow) => {
+      const toursForTruck = tours.filter((tour) => getTourPlate(tour) === truckRow.plate);
       const cells = weekDays.map((item) => {
-        const dayTours = tours.filter((tour) => getTourPlate(tour) === truckRow.plate && isTourActiveOnDate(tour, item.dateIso));
+        const dayTours = toursForTruck.filter((tour) => isTourActiveOnDate(tour, item.dateIso));
+        const emptyHint = dayTours.length === 0 ? renderTruckEmptyHint(toursForTruck, item.dateIso) : "";
         return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-date="${item.dateIso}">
           ${dayTours.map((tour) => renderCard(tour)).join("")}
+          ${emptyHint}
         </div>`;
       }).join("");
 
@@ -253,6 +256,18 @@ function renderCard(tour) {
     <div class="small">${tour.notes || ""}</div>
     ${secondaryInfo.length > 0 ? `<div class="small">${secondaryInfo.join(" · ")}</div>` : ""}
   </article>`;
+}
+
+function renderTruckEmptyHint(toursForTruck, dateIso) {
+  const previousTour = toursForTruck
+    .filter((tour) => tour.toDate < dateIso)
+    .sort((a, b) => b.toDate.localeCompare(a.toDate))[0];
+  if (!previousTour) return "";
+
+  const emptyFromDate = addDaysIso(previousTour.toDate, 1);
+  if (dateIso < emptyFromDate) return "";
+
+  return `<div class="empty-hint">Leer ab ${formatLongDate(emptyFromDate)} in ${previousTour.unloadLocation || "unbekannt"}</div>`;
 }
 
 function attachCardSelectionEvents() {

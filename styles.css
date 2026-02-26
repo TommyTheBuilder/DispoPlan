@@ -107,6 +107,14 @@ textarea { min-height: 70px; }
   border: 1px solid #f1b4b4;
 }
 .small { color: var(--muted); font-size: 0.85rem; }
+.empty-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  border: 1px dashed #cfd7e8;
+  border-radius: 8px;
+  padding: 8px;
+  background: #f7f9ff;
+}
 
 .management-grid { display: grid; grid-template-columns: repeat(3, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
 .panel { border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; }
