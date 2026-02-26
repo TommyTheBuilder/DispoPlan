@@ -121,9 +121,11 @@ function renderStats() {
     acc[tour.status] = (acc[tour.status] || 0) + 1;
     return acc;
   }, {});
+  const openCount = tours.filter((tour) => tour.status !== "done").length;
 
   stats.innerHTML = Object.entries(STATUS_META)
     .map(([key, meta]) => `<div class="stat ${meta.cls}">${counts[key] || 0}<small>${meta.label}</small></div>`)
+    .concat(`<div class="stat stat-open">${openCount}<small>Offen zu erledigen</small></div>`)
     .join("");
 }
 
@@ -131,8 +133,9 @@ function renderBoard() {
   const weekInfo = parseWeekKey(state.currentWeekKey);
   const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
   const tours = getFilteredTours();
+  const truckRows = getTruckRows();
 
-  const headerCells = ['<div class="header-cell">Unternehmer</div>']
+  const headerCells = ['<div class="header-cell">Kennzeichen / LKW</div>']
     .concat(DAY_NAMES.map((name, idx) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + idx);
@@ -140,16 +143,16 @@ function renderBoard() {
     }))
     .join("");
 
-  const entrepreneurRows = state.entrepreneurs
-    .map((entrepreneur) => {
+  const entrepreneurRows = truckRows
+    .map((truckRow) => {
       const cells = DAY_NAMES.map((_, dayIndex) => {
-        const dayTours = tours.filter((tour) => tour.entrepreneurId === entrepreneur.id && tour.dayIndex === dayIndex);
-        return `<div class="day-cell" data-entrepreneur-id="${entrepreneur.id}" data-day-index="${dayIndex}">
+        const dayTours = tours.filter((tour) => getTourPlate(tour) === truckRow.plate && tour.dayIndex === dayIndex);
+        return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-day-index="${dayIndex}">
           ${dayTours.map((tour) => renderCard(tour)).join("") || ""}
         </div>`;
       }).join("");
 
-      return `<div class="row-label"><strong>${entrepreneur.name}</strong><div class="plate">${entrepreneur.plate}</div></div>${cells}`;
+      return `<div class="row-label"><strong>${truckRow.plate}</strong><div class="plate">${truckRow.entrepreneurNames}</div></div>${cells}`;
     })
     .join("");
 
@@ -167,9 +170,37 @@ function renderCard(tour) {
     </div>
     <strong>${tour.title}</strong>
     <div class="small">${entrepreneur?.plate || "ohne Kennzeichen"}</div>
+    <div class="small">${entrepreneur?.name || "ohne Unternehmer"}</div>
     <div>${(tour.stops || []).slice(0, 2).join(" → ") || "Freies Feld"}</div>
     <div class="small">${tour.notes || ""}</div>
   </article>`;
+}
+
+function getTruckRows() {
+  const trucksByPlate = new Map();
+
+  state.entrepreneurs.forEach((entrepreneur) => {
+    const plate = entrepreneur.plate || "ohne Kennzeichen";
+    if (!trucksByPlate.has(plate)) {
+      trucksByPlate.set(plate, {
+        plate,
+        primaryEntrepreneurId: entrepreneur.id,
+        entrepreneurNames: new Set([entrepreneur.name]),
+      });
+      return;
+    }
+    trucksByPlate.get(plate).entrepreneurNames.add(entrepreneur.name);
+  });
+
+  return Array.from(trucksByPlate.values()).map((row) => ({
+    ...row,
+    entrepreneurNames: Array.from(row.entrepreneurNames).join(", "),
+  }));
+}
+
+function getTourPlate(tour) {
+  const entrepreneur = state.entrepreneurs.find((item) => item.id === tour.entrepreneurId);
+  return entrepreneur?.plate || "ohne Kennzeichen";
 }
 
 function attachDndEvents() {
