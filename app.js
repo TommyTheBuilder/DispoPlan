@@ -206,7 +206,7 @@ function renderBoard() {
     .map((truckRow) => {
       const toursForTruck = tours.filter((tour) => getTourPlate(tour) === truckRow.plate);
       const cells = weekDays.map((item) => {
-        const dayTours = toursForTruck.filter((tour) => tour.fromDate === item.dateIso).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        const dayTours = toursForTruck.filter((tour) => tour.fromDate === item.dateIso).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
         const emptyHint = dayTours.length === 0 ? renderTruckEmptyHint(toursForTruck, item.dateIso) : "";
         return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-date="${item.dateIso}">
           ${dayTours.map((tour) => renderCard(tour)).join("")}
@@ -246,12 +246,13 @@ function renderCard(tour) {
 }
 
 function renderTruckEmptyHint(toursForTruck, dateIso) {
+  const previousDay = addDaysIso(dateIso, -1);
   const previousTour = toursForTruck
-    .filter((tour) => tour.toDate === dateIso)
+    .filter((tour) => tour.toDate === previousDay)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   if (!previousTour) return "";
 
-  return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer am ${formatLongDate(previousTour.toDate)} in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
+  return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
 }
 
 function attachCardSelectionEvents() {
