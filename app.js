@@ -10,6 +10,11 @@ const channel = "BroadcastChannel" in window ? new BroadcastChannel("dispoplan-s
 
 const initialState = {
   currentWeekKey: getWeekKey(new Date()),
+  currentDepartmentId: "all",
+  departments: [
+    { id: crypto.randomUUID(), name: "Fernverkehr" },
+    { id: crypto.randomUUID(), name: "Nahverkehr" },
+  ],
   entrepreneurs: [
     { id: crypto.randomUUID(), name: "PODTIS", plate: "MM-UB-5222AL" },
     { id: crypto.randomUUID(), name: "Sky Trans", plate: "SV-46" },
@@ -29,6 +34,7 @@ const board = document.getElementById("board");
 const stats = document.getElementById("stats");
 const weekLabel = document.getElementById("currentWeekLabel");
 const entrepreneurFilter = document.getElementById("entrepreneurFilter");
+const departmentFilter = document.getElementById("departmentFilter");
 
 bindEvents();
 render();
@@ -39,6 +45,8 @@ function bindEvents() {
 
   document.getElementById("newTourBtn").addEventListener("click", () => {
     hydrateEntrepreneurOptions();
+    hydrateDepartmentOptions();
+    prefillTourDateRange();
     document.getElementById("tourDialog").showModal();
   });
   document.getElementById("cancelTourDialog").addEventListener("click", () => document.getElementById("tourDialog").close());
@@ -46,13 +54,21 @@ function bindEvents() {
   document.getElementById("tourForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
+    const fromDate = String(formData.get("fromDate") || "");
+    const toDate = String(formData.get("toDate") || "");
+    if (!isValidDateRange(fromDate, toDate)) return;
+
+    const selectedDepartmentId = String(formData.get("departmentId") || "");
     const tour = {
       id: crypto.randomUUID(),
       title: String(formData.get("title") || ""),
       entrepreneurId: String(formData.get("entrepreneurId") || ""),
-      dayIndex: Number(formData.get("dayIndex")),
+      departmentId: getValidDepartmentId(selectedDepartmentId),
       status: normalizeStatus(formData.get("status")),
-      stops: String(formData.get("stops") || "").split(";").map((item) => item.trim()).filter(Boolean),
+      fromDate,
+      toDate,
+      loadLocation: String(formData.get("loadLocation") || ""),
+      unloadLocation: String(formData.get("unloadLocation") || ""),
       notes: String(formData.get("notes") || ""),
       customerStatusRequired: formData.get("customerStatusRequired") === "on",
       customerStatusReportedAt: null,
@@ -76,7 +92,15 @@ function bindEvents() {
     if (!tour) return;
 
     const formData = new FormData(event.target);
+    const fromDate = String(formData.get("fromDate") || "");
+    const toDate = String(formData.get("toDate") || "");
+    if (!isValidDateRange(fromDate, toDate)) return;
+
     tour.status = normalizeStatus(formData.get("status"));
+    tour.fromDate = fromDate;
+    tour.toDate = toDate;
+    tour.loadLocation = String(formData.get("loadLocation") || "");
+    tour.unloadLocation = String(formData.get("unloadLocation") || "");
     tour.arrivalTime = String(formData.get("arrivalTime") || "");
     tour.customerStatusRequired = formData.get("customerStatusRequired") === "on";
 
@@ -98,6 +122,10 @@ function bindEvents() {
   document.getElementById("searchInput").addEventListener("input", render);
   document.getElementById("statusFilter").addEventListener("change", render);
   entrepreneurFilter.addEventListener("change", render);
+  departmentFilter.addEventListener("change", () => {
+    state.currentDepartmentId = departmentFilter.value;
+    persistAndRender();
+  });
 
   document.getElementById("entrepreneurForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -107,6 +135,14 @@ function bindEvents() {
       name: String(formData.get("name") || ""),
       plate: String(formData.get("plate") || ""),
     });
+    persistAndRender();
+    event.target.reset();
+  });
+
+  document.getElementById("departmentForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    state.departments.push({ id: crypto.randomUUID(), name: String(formData.get("name") || "") });
     persistAndRender();
     event.target.reset();
   });
@@ -143,9 +179,12 @@ function render() {
   renderStats();
   renderBoard();
   renderEntrepreneurs();
+  renderDepartments();
   renderAccounts();
   hydrateEntrepreneurFilter();
+  hydrateDepartmentFilter();
   hydrateEntrepreneurOptions();
+  hydrateDepartmentOptions();
 }
 
 function renderStats() {
@@ -169,20 +208,22 @@ function renderBoard() {
   const tours = getFilteredTours();
   const truckRows = getTruckRows();
 
+  const weekDays = DAY_NAMES.map((name, idx) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + idx);
+    return { name, date, dateIso: toIsoDate(date) };
+  });
+
   const headerCells = ['<div class="header-cell">Kennzeichen / LKW</div>']
-    .concat(DAY_NAMES.map((name, idx) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + idx);
-      return `<div class="header-cell">${name}<div class="small">${formatDate(date)}</div></div>`;
-    }))
+    .concat(weekDays.map((item) => `<div class="header-cell">${item.name}<div class="small">${formatDate(item.date)}</div></div>`))
     .join("");
 
-  const entrepreneurRows = truckRows
+  const rowHtml = truckRows
     .map((truckRow) => {
-      const cells = DAY_NAMES.map((_, dayIndex) => {
-        const dayTours = tours.filter((tour) => getTourPlate(tour) === truckRow.plate && tour.dayIndex === dayIndex);
-        return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-day-index="${dayIndex}">
-          ${dayTours.map((tour) => renderCard(tour)).join("") || ""}
+      const cells = weekDays.map((item) => {
+        const dayTours = tours.filter((tour) => getTourPlate(tour) === truckRow.plate && isTourActiveOnDate(tour, item.dateIso));
+        return `<div class="day-cell" data-entrepreneur-id="${truckRow.primaryEntrepreneurId}" data-date="${item.dateIso}">
+          ${dayTours.map((tour) => renderCard(tour)).join("")}
         </div>`;
       }).join("");
 
@@ -190,7 +231,7 @@ function renderBoard() {
     })
     .join("");
 
-  board.innerHTML = headerCells + entrepreneurRows;
+  board.innerHTML = headerCells + rowHtml;
   attachDndEvents();
   attachCardSelectionEvents();
 }
@@ -208,7 +249,7 @@ function renderCard(tour) {
       <small>${new Date(tour.updatedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</small>
     </div>
     <strong>${tour.title}</strong>
-    <div>${(tour.stops || []).slice(0, 2).join(" → ") || "Freies Feld"}</div>
+    <div class="small">${formatLongDate(tour.fromDate)} ${tour.loadLocation} → ${formatLongDate(tour.toDate)} ${tour.unloadLocation}</div>
     <div class="small">${tour.notes || ""}</div>
     ${secondaryInfo.length > 0 ? `<div class="small">${secondaryInfo.join(" · ")}</div>` : ""}
   </article>`;
@@ -227,6 +268,10 @@ function openTourStatusDialog(tourId) {
 
   document.getElementById("tourStatusTitle").textContent = `Tour bearbeiten: ${tour.title}`;
   document.getElementById("editTourStatus").value = normalizeStatus(tour.status);
+  document.getElementById("editFromDate").value = tour.fromDate;
+  document.getElementById("editToDate").value = tour.toDate;
+  document.getElementById("editLoadLocation").value = tour.loadLocation;
+  document.getElementById("editUnloadLocation").value = tour.unloadLocation;
   document.getElementById("editArrivalTime").value = tour.arrivalTime || "";
   document.getElementById("editCustomerStatusRequired").checked = Boolean(tour.customerStatusRequired);
   document.getElementById("editCustomerStatusDone").checked = Boolean(tour.customerStatusReportedAt);
@@ -280,7 +325,11 @@ function attachDndEvents() {
       const tourId = event.dataTransfer.getData("text/tour-id");
       const tour = getCurrentWeekTours().find((item) => item.id === tourId);
       if (!tour) return;
-      tour.dayIndex = Number(cell.dataset.dayIndex);
+
+      const startDate = cell.dataset.date;
+      const durationDays = Math.max(0, getDateDiffDays(tour.fromDate, tour.toDate));
+      tour.fromDate = startDate;
+      tour.toDate = addDaysIso(startDate, durationDays);
       tour.entrepreneurId = cell.dataset.entrepreneurId;
       tour.updatedAt = new Date().toISOString();
       persistAndRender();
@@ -305,6 +354,24 @@ function renderEntrepreneurs() {
   });
 }
 
+function renderDepartments() {
+  const list = document.getElementById("departmentList");
+  list.innerHTML = state.departments
+    .map((item) => `<li><span>${item.name}</span><button class="btn" data-remove-department="${item.id}">Löschen</button></li>`)
+    .join("");
+  list.querySelectorAll("[data-remove-department]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.removeDepartment;
+      state.departments = state.departments.filter((item) => item.id !== id);
+      Object.values(state.weeks).forEach((week) => {
+        week.tours = week.tours.filter((tour) => tour.departmentId !== id);
+      });
+      state.currentDepartmentId = "all";
+      persistAndRender();
+    });
+  });
+}
+
 function renderAccounts() {
   const list = document.getElementById("accountList");
   list.innerHTML = state.accounts
@@ -324,9 +391,23 @@ function hydrateEntrepreneurFilter() {
   entrepreneurFilter.value = state.entrepreneurs.some((item) => item.id === currentValue) ? currentValue : "all";
 }
 
+function hydrateDepartmentFilter() {
+  const currentValue = state.currentDepartmentId;
+  departmentFilter.innerHTML = '<option value="all">Alle</option>' + state.departments.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+  departmentFilter.value = state.departments.some((item) => item.id === currentValue) ? currentValue : "all";
+  state.currentDepartmentId = departmentFilter.value;
+}
+
 function hydrateEntrepreneurOptions() {
   const target = document.getElementById("tourEntrepreneur");
   target.innerHTML = state.entrepreneurs.map((item) => `<option value="${item.id}">${item.name} · ${item.plate}</option>`).join("");
+}
+
+function hydrateDepartmentOptions() {
+  const target = document.getElementById("tourDepartment");
+  target.innerHTML = state.departments.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+  const preferred = state.currentDepartmentId !== "all" ? state.currentDepartmentId : (state.departments[0]?.id || "");
+  target.value = preferred;
 }
 
 function getFilteredTours() {
@@ -336,11 +417,13 @@ function getFilteredTours() {
 
   return getCurrentWeekTours().filter((tour) => {
     const entrepreneur = state.entrepreneurs.find((item) => item.id === tour.entrepreneurId);
-    const haystack = `${tour.title} ${tour.notes} ${(tour.stops || []).join(" ")} ${entrepreneur?.name || ""} ${entrepreneur?.plate || ""}`.toLowerCase();
+    const department = state.departments.find((item) => item.id === tour.departmentId);
+    const haystack = `${tour.title} ${tour.notes} ${tour.loadLocation} ${tour.unloadLocation} ${entrepreneur?.name || ""} ${entrepreneur?.plate || ""} ${department?.name || ""}`.toLowerCase();
     const matchesSearch = !search || haystack.includes(search);
     const matchesStatus = status === "all" || tour.status === status;
     const matchesEntrepreneur = entrepreneurId === "all" || tour.entrepreneurId === entrepreneurId;
-    return matchesSearch && matchesStatus && matchesEntrepreneur;
+    const matchesDepartment = state.currentDepartmentId === "all" || tour.departmentId === state.currentDepartmentId;
+    return matchesSearch && matchesStatus && matchesEntrepreneur && matchesDepartment;
   });
 }
 
@@ -356,10 +439,23 @@ function normalizeStatus(status) {
   return status;
 }
 
-function normalizeTour(tour) {
+function normalizeTour(tour, weekKey) {
+  const weekInfo = parseWeekKey(weekKey);
+  const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
+  const legacyDay = Number.isInteger(tour.dayIndex) ? tour.dayIndex : 0;
+  const legacyDate = toIsoDate(addDays(new Date(monday), legacyDay));
+
+  const fromDate = tour.fromDate || legacyDate;
+  const toDate = tour.toDate || fromDate;
+
   return {
     ...tour,
+    departmentId: tour.departmentId || "",
     status: normalizeStatus(tour.status),
+    fromDate,
+    toDate: toDate < fromDate ? fromDate : toDate,
+    loadLocation: tour.loadLocation || (tour.stops?.[0] || ""),
+    unloadLocation: tour.unloadLocation || (tour.stops?.[1] || ""),
     customerStatusRequired: Boolean(tour.customerStatusRequired),
     customerStatusReportedAt: tour.customerStatusReportedAt || null,
     arrivalTime: tour.arrivalTime || "",
@@ -371,27 +467,41 @@ function loadState() {
   if (!raw) return structuredClone(initialState);
   try {
     const parsed = JSON.parse(raw);
-    const weeks = Object.fromEntries(
+    const departments = parsed.departments?.length ? parsed.departments : structuredClone(initialState.departments);
+
+    const merged = {
+      ...structuredClone(initialState),
+      ...parsed,
+      departments,
+      entrepreneurs: parsed.entrepreneurs || [],
+      accounts: parsed.accounts || [],
+      vehicles: parsed.vehicles || [],
+      weeks: {},
+    };
+
+    merged.weeks = Object.fromEntries(
       Object.entries(parsed.weeks || {}).map(([key, value]) => [
         key,
         {
           ...value,
-          tours: (value.tours || []).map(normalizeTour),
+          tours: (value.tours || []).map((tour) => normalizeTourWithDepartments(tour, key, merged.departments)),
         },
       ]),
     );
 
-    return {
-      ...structuredClone(initialState),
-      ...parsed,
-      weeks,
-      entrepreneurs: parsed.entrepreneurs || [],
-      accounts: parsed.accounts || [],
-      vehicles: parsed.vehicles || [],
-    };
+    return merged;
   } catch {
     return structuredClone(initialState);
   }
+}
+
+function normalizeTourWithDepartments(tour, weekKey, departments) {
+  const firstDepartmentId = departments[0]?.id || "";
+  const normalized = normalizeTour(tour, weekKey);
+  if (!departments.some((item) => item.id === normalized.departmentId)) {
+    normalized.departmentId = firstDepartmentId;
+  }
+  return normalized;
 }
 
 function saveState() {
@@ -408,19 +518,28 @@ function ensureWeekExists(weekKey) {
   if (!state.weeks[weekKey]) {
     state.weeks[weekKey] = { tours: [], createdAt: new Date().toISOString() };
   }
-  state.weeks[weekKey].tours = (state.weeks[weekKey].tours || []).map(normalizeTour);
+  state.weeks[weekKey].tours = (state.weeks[weekKey].tours || []).map((tour) => normalizeTourWithDepartments(tour, weekKey, state.departments));
 }
 
 function seedExampleTours(weekKey) {
   if (state.weeks[weekKey].tours.length > 0 || state.entrepreneurs.length === 0) return;
+  const weekInfo = parseWeekKey(weekKey);
+  const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
+  const mondayIso = toIsoDate(monday);
+  const tuesdayIso = toIsoDate(addDays(new Date(monday), 1));
+  const firstDepartmentId = state.departments[0]?.id || "";
+
   state.weeks[weekKey].tours.push(
     {
       id: crypto.randomUUID(),
-      title: "Linz → Gärchzing",
+      title: "München → Stuttgart",
       entrepreneurId: state.entrepreneurs[0].id,
-      dayIndex: 0,
+      departmentId: firstDepartmentId,
       status: "planned",
-      stops: ["Linz", "Gärchzing"],
+      fromDate: mondayIso,
+      toDate: tuesdayIso,
+      loadLocation: "D-80 München",
+      unloadLocation: "D-70 Stuttgart",
       notes: "Trailer 24t",
       customerStatusRequired: true,
       customerStatusReportedAt: null,
@@ -431,9 +550,12 @@ function seedExampleTours(weekKey) {
       id: crypto.randomUUID(),
       title: "Dresden Sonderfahrt",
       entrepreneurId: state.entrepreneurs[1].id,
-      dayIndex: 4,
+      departmentId: firstDepartmentId,
       status: "problem",
-      stops: ["Dresden", "Freilassing"],
+      fromDate: toIsoDate(addDays(new Date(monday), 4)),
+      toDate: toIsoDate(addDays(new Date(monday), 4)),
+      loadLocation: "Dresden",
+      unloadLocation: "Freilassing",
       notes: "Fahrer bestätigen",
       customerStatusRequired: false,
       customerStatusReportedAt: null,
@@ -443,8 +565,59 @@ function seedExampleTours(weekKey) {
   );
 }
 
+function getValidDepartmentId(inputId) {
+  if (state.departments.some((item) => item.id === inputId)) return inputId;
+  return state.departments[0]?.id || "";
+}
+
+function prefillTourDateRange() {
+  const form = document.getElementById("tourForm");
+  const weekInfo = parseWeekKey(state.currentWeekKey);
+  const monday = isoWeekToDate(weekInfo.year, weekInfo.week);
+  form.elements.fromDate.value = toIsoDate(monday);
+  form.elements.toDate.value = toIsoDate(monday);
+}
+
+function isTourActiveOnDate(tour, dateIso) {
+  return tour.fromDate <= dateIso && tour.toDate >= dateIso;
+}
+
+function isValidDateRange(fromDate, toDate) {
+  return Boolean(fromDate) && Boolean(toDate) && fromDate <= toDate;
+}
+
+function getDateDiffDays(fromIso, toIso) {
+  const from = new Date(`${fromIso}T00:00:00`);
+  const to = new Date(`${toIso}T00:00:00`);
+  return Math.round((to - from) / 86400000);
+}
+
+function addDaysIso(baseIso, days) {
+  const date = new Date(`${baseIso}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return toIsoDate(date);
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function toIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatDate(date) {
   return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+}
+
+function formatLongDate(dateIso) {
+  if (!dateIso) return "";
+  return new Date(`${dateIso}T00:00:00`).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function getWeekKey(date) {

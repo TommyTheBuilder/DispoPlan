@@ -40,6 +40,10 @@
             <option value="all">Alle</option>
           </select>
         </label>
+        <label>
+          Abteilung
+          <select id="departmentFilter"></select>
+        </label>
       </section>
 
       <section class="stats" id="stats"></section>
@@ -57,6 +61,15 @@
             <button class="btn btn-primary" type="submit">Speichern</button>
           </form>
           <ul id="entrepreneurList" class="list"></ul>
+        </article>
+
+        <article class="panel">
+          <h2>Abteilungen</h2>
+          <form id="departmentForm" class="inline-form single-column">
+            <input name="name" placeholder="Abteilung" required />
+            <button class="btn btn-primary" type="submit">Anlegen</button>
+          </form>
+          <ul id="departmentList" class="list"></ul>
         </article>
 
         <article class="panel">
@@ -79,27 +92,22 @@
       <form id="tourForm" method="dialog" class="dialog-form">
         <h3>Tour anlegen</h3>
         <label>Titel <input name="title" required /></label>
+        <label>Abteilung <select name="departmentId" id="tourDepartment" required></select></label>
         <label>Unternehmer <select name="entrepreneurId" required id="tourEntrepreneur"></select></label>
-        <label>Tag
-          <select name="dayIndex">
-            <option value="0">Montag</option>
-            <option value="1">Dienstag</option>
-            <option value="2">Mittwoch</option>
-            <option value="3">Donnerstag</option>
-            <option value="4">Freitag</option>
-            <option value="5">Samstag</option>
-            <option value="6">Sonntag</option>
-          </select>
-        </label>
+        <div class="split-2">
+          <label>Von Datum <input name="fromDate" type="date" required /></label>
+          <label>Bis Datum <input name="toDate" type="date" required /></label>
+        </div>
+        <div class="split-2">
+          <label>Beladestelle (z. B. D-80 München) <input name="loadLocation" required /></label>
+          <label>Entladestelle (z. B. D-70 Stuttgart) <input name="unloadLocation" required /></label>
+        </div>
         <label>Status
           <select name="status">
             <option value="planned">Geplant</option>
             <option value="problem">Problem</option>
             <option value="sent">Geschickt</option>
           </select>
-        </label>
-        <label>Stops (frei beschreibbar, mit ; trennen)
-          <input name="stops" placeholder="z.B. Linz -> Graz; Graz -> Wien" />
         </label>
         <label>Notiz <textarea name="notes" placeholder="Freie Beschreibung"></textarea></label>
         <label class="check-row"><input name="customerStatusRequired" type="checkbox" /> Kundenstatus erforderlich</label>
@@ -120,6 +128,14 @@
             <option value="sent">Geschickt</option>
           </select>
         </label>
+        <div class="split-2">
+          <label>Von Datum <input type="date" name="fromDate" id="editFromDate" required /></label>
+          <label>Bis Datum <input type="date" name="toDate" id="editToDate" required /></label>
+        </div>
+        <div class="split-2">
+          <label>Beladestelle <input type="text" name="loadLocation" id="editLoadLocation" required /></label>
+          <label>Entladestelle <input type="text" name="unloadLocation" id="editUnloadLocation" required /></label>
+        </div>
         <label>Ankunft Lade-/Entladestelle
           <input type="time" name="arrivalTime" id="editArrivalTime" />
         </label>

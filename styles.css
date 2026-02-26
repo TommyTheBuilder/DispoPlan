@@ -32,7 +32,7 @@ body {
 h1 { margin: 0; font-size: 1.8rem; }
 .muted { margin: 4px 0 0; color: var(--muted); }
 
-.toolbar { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.toolbar { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
 .toolbar label, .dialog-form label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
 input, select, textarea {
   border: 1px solid #c9d0df;
@@ -108,7 +108,7 @@ textarea { min-height: 70px; }
 }
 .small { color: var(--muted); font-size: 0.85rem; }
 
-.management-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.management-grid { display: grid; grid-template-columns: repeat(3, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
 .panel { border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; }
 .inline-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 10px; }
 .list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
@@ -139,3 +139,6 @@ textarea { min-height: 70px; }
 dialog { border: 1px solid #ccd6eb; border-radius: 10px; }
 .dialog-form { min-width: 460px; display: grid; gap: 10px; }
 menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 0; }
+
+.split-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.single-column { grid-template-columns: 1fr auto; }
