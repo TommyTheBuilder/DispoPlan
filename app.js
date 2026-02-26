@@ -237,6 +237,7 @@ function renderBoard() {
   board.innerHTML = headerCells + rowHtml;
   attachDndEvents();
   attachCardSelectionEvents();
+  attachEmptyHintEvents();
 }
 
 function renderCard(tour) {
@@ -265,14 +266,20 @@ function renderTruckEmptyHint(toursForTruck, dateIso) {
   if (!previousTour) return "";
 
   const emptyFromDate = addDaysIso(previousTour.toDate, 1);
-  if (dateIso < emptyFromDate) return "";
+  if (dateIso !== emptyFromDate) return "";
 
-  return `<div class="empty-hint">Leer ab ${formatLongDate(emptyFromDate)} in ${previousTour.unloadLocation || "unbekannt"}</div>`;
+  return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer ab ${formatLongDate(emptyFromDate)} in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
 }
 
 function attachCardSelectionEvents() {
   document.querySelectorAll(".card").forEach((card) => {
     card.addEventListener("click", () => openTourStatusDialog(card.dataset.tourId));
+  });
+}
+
+function attachEmptyHintEvents() {
+  document.querySelectorAll("[data-empty-hint-tour-id]").forEach((hintButton) => {
+    hintButton.addEventListener("click", () => openTourStatusDialog(hintButton.dataset.emptyHintTourId));
   });
 }
 
@@ -292,6 +299,7 @@ function openTourStatusDialog(tourId) {
   document.getElementById("editCustomerStatusDone").checked = Boolean(tour.customerStatusReportedAt);
 
   document.getElementById("tourStatusDialog").showModal();
+  setTimeout(() => document.getElementById("editArrivalTime").focus(), 0);
 }
 
 function getTruckRows() {

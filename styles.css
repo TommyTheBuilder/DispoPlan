@@ -114,6 +114,12 @@ textarea { min-height: 70px; }
   border-radius: 8px;
   padding: 8px;
   background: #f7f9ff;
+  text-align: left;
+  cursor: pointer;
+}
+.empty-hint small {
+  display: block;
+  margin-top: 4px;
 }
 
 .management-grid { display: grid; grid-template-columns: repeat(3, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
