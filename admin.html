@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DispoPlan – Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Admin-Bereich</h1>
+          <p class="muted">Account-Verwaltung</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-ghost" href="index.html">Zur Planung</a>
+          <a class="btn btn-ghost" href="db.html">Datenbank</a>
+        </div>
+      </header>
+
+      <section class="management-grid one-col">
+        <article class="panel">
+          <h2>Account-Verwaltung</h2>
+          <form id="accountForm" class="inline-form">
+            <input name="username" placeholder="Benutzername" required />
+            <select name="role">
+              <option>Dispatcher</option>
+              <option>Admin</option>
+              <option>Leser</option>
+            </select>
+            <button class="btn btn-primary" type="submit">Anlegen</button>
+          </form>
+          <ul id="accountList" class="list"></ul>
+        </article>
+      </section>
+    </div>
+
+    <script>
+      const STORAGE_KEY = 'dispoplan.v1';
+      const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      state.accounts = state.accounts || [];
+      function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function render() {
+        const list = document.getElementById('accountList');
+        list.innerHTML = state.accounts.map((a) => `<li><span>${a.username} (${a.role})</span><button class="btn" data-rm-a="${a.id}">Löschen</button></li>`).join('');
+        list.querySelectorAll('[data-rm-a]').forEach((btn) => btn.addEventListener('click', () => {
+          state.accounts = state.accounts.filter((a) => a.id !== btn.dataset.rmA);
+          save(); render();
+        }));
+      }
+      document.getElementById('accountForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        state.accounts.push({ id: crypto.randomUUID(), username: String(formData.get('username') || ''), role: String(formData.get('role') || '') });
+        save(); event.target.reset(); render();
+      });
+      render();
+    </script>
+  </body>
+</html>

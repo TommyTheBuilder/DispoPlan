@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DispoPlan – Datenbank</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Datenbank</h1>
+          <p class="muted">Unternehmer, LKW/Kennzeichen und Abteilungen</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-ghost" href="index.html">Zur Planung</a>
+          <a class="btn btn-ghost" href="admin.html">Admin</a>
+        </div>
+      </header>
+
+      <section class="management-grid two-col">
+        <article class="panel">
+          <h2>Unternehmer + Kennzeichen</h2>
+          <form id="entrepreneurForm" class="inline-form">
+            <input name="name" placeholder="Unternehmer" required />
+            <input name="plate" placeholder="Kennzeichen" required />
+            <button class="btn btn-primary" type="submit">Speichern</button>
+          </form>
+          <ul id="entrepreneurList" class="list"></ul>
+        </article>
+
+        <article class="panel">
+          <h2>Abteilungen</h2>
+          <form id="departmentForm" class="inline-form single-column">
+            <input name="name" placeholder="Abteilung" required />
+            <button class="btn btn-primary" type="submit">Anlegen</button>
+          </form>
+          <ul id="departmentList" class="list"></ul>
+        </article>
+      </section>
+    </div>
+
+    <script>
+      const STORAGE_KEY = 'dispoplan.v1';
+      const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      state.entrepreneurs = state.entrepreneurs || [];
+      state.departments = state.departments || [];
+      state.weeks = state.weeks || {};
+
+      function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      function render() {
+        const eList = document.getElementById('entrepreneurList');
+        eList.innerHTML = state.entrepreneurs.map((e) => `<li><span>${e.name} · ${e.plate}</span><button class="btn" data-rm-e="${e.id}">Löschen</button></li>`).join('');
+        eList.querySelectorAll('[data-rm-e]').forEach((btn) => btn.addEventListener('click', () => {
+          const id = btn.dataset.rmE;
+          state.entrepreneurs = state.entrepreneurs.filter((e) => e.id !== id);
+          Object.values(state.weeks).forEach((w) => w.tours = (w.tours || []).filter((t) => t.entrepreneurId !== id));
+          save(); render();
+        }));
+
+        const dList = document.getElementById('departmentList');
+        dList.innerHTML = state.departments.map((d) => `<li><span>${d.name}</span><button class="btn" data-rm-d="${d.id}">Löschen</button></li>`).join('');
+        dList.querySelectorAll('[data-rm-d]').forEach((btn) => btn.addEventListener('click', () => {
+          const id = btn.dataset.rmD;
+          state.departments = state.departments.filter((d) => d.id !== id);
+          Object.values(state.weeks).forEach((w) => w.tours = (w.tours || []).filter((t) => t.departmentId !== id));
+          if (!state.departments.length) state.departments.push({ id: crypto.randomUUID(), name: 'Standard' });
+          save(); render();
+        }));
+      }
+
+      document.getElementById('entrepreneurForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        state.entrepreneurs.push({ id: crypto.randomUUID(), name: String(formData.get('name') || ''), plate: String(formData.get('plate') || '') });
+        save(); event.target.reset(); render();
+      });
+
+      document.getElementById('departmentForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        state.departments.push({ id: crypto.randomUUID(), name: String(formData.get('name') || '') });
+        save(); event.target.reset(); render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

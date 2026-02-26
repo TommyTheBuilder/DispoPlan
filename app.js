@@ -127,34 +127,6 @@ function bindEvents() {
     persistAndRender();
   });
 
-  document.getElementById("entrepreneurForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    state.entrepreneurs.push({
-      id: crypto.randomUUID(),
-      name: String(formData.get("name") || ""),
-      plate: String(formData.get("plate") || ""),
-    });
-    persistAndRender();
-    event.target.reset();
-  });
-
-  document.getElementById("departmentForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    state.departments.push({ id: crypto.randomUUID(), name: String(formData.get("name") || "") });
-    persistAndRender();
-    event.target.reset();
-  });
-
-  document.getElementById("accountForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    state.accounts.push({ id: crypto.randomUUID(), username: String(formData.get("username") || ""), role: String(formData.get("role") || "") });
-    persistAndRender();
-    event.target.reset();
-  });
-
   if (channel) {
     channel.onmessage = ({ data }) => {
       if (data?.type === "state-updated") {
@@ -178,9 +150,6 @@ function render() {
   weekLabel.textContent = state.currentWeekKey;
   renderStats();
   renderBoard();
-  renderEntrepreneurs();
-  renderDepartments();
-  renderAccounts();
   hydrateEntrepreneurFilter();
   hydrateDepartmentFilter();
   hydrateEntrepreneurOptions();

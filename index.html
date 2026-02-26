@@ -14,6 +14,8 @@
           <p class="muted">Desktop-First Wochenplanung für Touren</p>
         </div>
         <div class="topbar-actions">
+          <a class="btn btn-ghost" href="db.html">Datenbank</a>
+          <a class="btn btn-ghost" href="admin.html">Admin</a>
           <button id="prevWeekBtn" class="btn btn-ghost">◀ Vorwoche</button>
           <button id="nextWeekBtn" class="btn btn-ghost">Nächste Woche ▶</button>
           <button id="newTourBtn" class="btn btn-primary">+ Neue Tour</button>
@@ -51,41 +53,6 @@
       <main class="board-wrap">
         <div class="board" id="board"></div>
       </main>
-
-      <section class="management-grid">
-        <article class="panel">
-          <h2>Datenbank: Unternehmer + Kennzeichen</h2>
-          <form id="entrepreneurForm" class="inline-form">
-            <input name="name" placeholder="Unternehmer" required />
-            <input name="plate" placeholder="Kennzeichen" required />
-            <button class="btn btn-primary" type="submit">Speichern</button>
-          </form>
-          <ul id="entrepreneurList" class="list"></ul>
-        </article>
-
-        <article class="panel">
-          <h2>Abteilungen</h2>
-          <form id="departmentForm" class="inline-form single-column">
-            <input name="name" placeholder="Abteilung" required />
-            <button class="btn btn-primary" type="submit">Anlegen</button>
-          </form>
-          <ul id="departmentList" class="list"></ul>
-        </article>
-
-        <article class="panel">
-          <h2>Account-Verwaltung</h2>
-          <form id="accountForm" class="inline-form">
-            <input name="username" placeholder="Benutzername" required />
-            <select name="role">
-              <option>Dispatcher</option>
-              <option>Admin</option>
-              <option>Leser</option>
-            </select>
-            <button class="btn btn-primary" type="submit">Anlegen</button>
-          </form>
-          <ul id="accountList" class="list"></ul>
-        </article>
-      </section>
     </div>
 
     <dialog id="tourDialog">

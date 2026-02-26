@@ -156,3 +156,6 @@ menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 0
 
 .split-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .single-column { grid-template-columns: 1fr auto; }
+
+.management-grid.two-col { grid-template-columns: repeat(2, minmax(320px, 1fr)); }
+.management-grid.one-col { grid-template-columns: 1fr; }
