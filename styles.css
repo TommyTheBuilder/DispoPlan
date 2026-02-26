@@ -6,8 +6,7 @@
   --muted: #5f6b84;
   --planned: #cfeedd;
   --problem: #ffd9cc;
-  --water: #d7efff;
-  --done: #dbf5d8;
+  --sent: #dbf5d8;
   font-family: Inter, Segoe UI, Roboto, sans-serif;
 }
 
@@ -102,8 +101,7 @@ textarea { min-height: 70px; }
 }
 .status-planned { background: var(--planned); }
 .status-problem { background: var(--problem); }
-.status-water { background: var(--water); }
-.status-done { background: var(--done); }
+.status-sent { background: var(--sent); }
 .stat-open {
   background: #ffe1e1;
   border: 1px solid #f1b4b4;

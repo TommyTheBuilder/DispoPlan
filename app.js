@@ -2,8 +2,7 @@ const DAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "S
 const STATUS_META = {
   planned: { label: "Geplant", cls: "status-planned" },
   problem: { label: "Problem", cls: "status-problem" },
-  water: { label: "Wasser", cls: "status-water" },
-  done: { label: "Erledigt", cls: "status-done" },
+  sent: { label: "Geschickt", cls: "status-sent" },
 };
 
 const STORAGE_KEY = "dispoplan.v1";
@@ -52,16 +51,15 @@ function bindEvents() {
       title: String(formData.get("title") || ""),
       entrepreneurId: String(formData.get("entrepreneurId") || ""),
       dayIndex: Number(formData.get("dayIndex")),
-      status: String(formData.get("status") || "planned"),
+      status: normalizeStatus(formData.get("status")),
       stops: String(formData.get("stops") || "").split(";").map((item) => item.trim()).filter(Boolean),
       notes: String(formData.get("notes") || ""),
       customerStatusRequired: formData.get("customerStatusRequired") === "on",
       customerStatusReportedAt: null,
       arrivalTime: "",
-      driverNotified: false,
       updatedAt: new Date().toISOString(),
     };
-    state.weeks[state.currentWeekKey].tours.push(tour);
+    getCurrentWeekTours().push(tour);
     persistAndRender();
     event.target.reset();
     document.getElementById("tourDialog").close();
@@ -78,9 +76,8 @@ function bindEvents() {
     if (!tour) return;
 
     const formData = new FormData(event.target);
-    tour.status = String(formData.get("status") || "planned");
+    tour.status = normalizeStatus(formData.get("status"));
     tour.arrivalTime = String(formData.get("arrivalTime") || "");
-    tour.driverNotified = formData.get("driverNotified") === "on";
     tour.customerStatusRequired = formData.get("customerStatusRequired") === "on";
 
     const statusDone = formData.get("customerStatusDone") === "on";
@@ -157,13 +154,12 @@ function renderStats() {
     acc[tour.status] = (acc[tour.status] || 0) + 1;
     return acc;
   }, {});
-  const openCount = tours.filter((tour) => tour.status !== "done").length;
+  const openCount = tours.filter((tour) => tour.status !== "sent").length;
   const openCustomerStatusCount = tours.filter((tour) => tour.customerStatusRequired && !tour.customerStatusReportedAt).length;
 
   stats.innerHTML = Object.entries(STATUS_META)
-    .filter(([key]) => key !== "water")
     .map(([key, meta]) => `<div class="stat ${meta.cls}">${counts[key] || 0}<small>${meta.label}</small></div>`)
-    .concat(`<div class="stat stat-open">${openCount}<small>Offen zu erledigen · Kundenstatus offen: ${openCustomerStatusCount}</small></div>`)
+    .concat(`<div class="stat stat-open">${openCount}<small>Kundenstatus offen: ${openCustomerStatusCount}</small></div>`)
     .join("");
 }
 
@@ -203,7 +199,6 @@ function renderCard(tour) {
   const meta = STATUS_META[tour.status] || STATUS_META.planned;
   const secondaryInfo = [];
   if (tour.arrivalTime) secondaryInfo.push(`Ankunft: ${tour.arrivalTime}`);
-  if (tour.driverNotified) secondaryInfo.push("Fahrer informiert");
   if (tour.customerStatusRequired && !tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus offen");
   if (tour.customerStatusRequired && tour.customerStatusReportedAt) secondaryInfo.push("Kundenstatus gemeldet");
 
@@ -231,9 +226,8 @@ function openTourStatusDialog(tourId) {
   selectedTourId = tour.id;
 
   document.getElementById("tourStatusTitle").textContent = `Tour bearbeiten: ${tour.title}`;
-  document.getElementById("editTourStatus").value = tour.status;
+  document.getElementById("editTourStatus").value = normalizeStatus(tour.status);
   document.getElementById("editArrivalTime").value = tour.arrivalTime || "";
-  document.getElementById("editDriverNotified").checked = Boolean(tour.driverNotified);
   document.getElementById("editCustomerStatusRequired").checked = Boolean(tour.customerStatusRequired);
   document.getElementById("editCustomerStatusDone").checked = Boolean(tour.customerStatusReportedAt);
 
@@ -355,13 +349,20 @@ function getCurrentWeekTours() {
   return state.weeks[state.currentWeekKey].tours;
 }
 
+function normalizeStatus(status) {
+  if (status === "done") return "sent";
+  if (status === "water") return "planned";
+  if (!STATUS_META[status]) return "planned";
+  return status;
+}
+
 function normalizeTour(tour) {
   return {
     ...tour,
+    status: normalizeStatus(tour.status),
     customerStatusRequired: Boolean(tour.customerStatusRequired),
     customerStatusReportedAt: tour.customerStatusReportedAt || null,
     arrivalTime: tour.arrivalTime || "",
-    driverNotified: Boolean(tour.driverNotified),
   };
 }
 
@@ -418,13 +419,12 @@ function seedExampleTours(weekKey) {
       title: "Linz → Gärchzing",
       entrepreneurId: state.entrepreneurs[0].id,
       dayIndex: 0,
-      status: "water",
+      status: "planned",
       stops: ["Linz", "Gärchzing"],
       notes: "Trailer 24t",
       customerStatusRequired: true,
       customerStatusReportedAt: null,
       arrivalTime: "",
-      driverNotified: false,
       updatedAt: new Date().toISOString(),
     },
     {
@@ -438,7 +438,6 @@ function seedExampleTours(weekKey) {
       customerStatusRequired: false,
       customerStatusReportedAt: null,
       arrivalTime: "",
-      driverNotified: false,
       updatedAt: new Date().toISOString(),
     },
   );

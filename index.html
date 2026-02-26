@@ -31,8 +31,7 @@
             <option value="all">Alle</option>
             <option value="planned">Geplant</option>
             <option value="problem">Problem</option>
-            <option value="water">Wasser</option>
-            <option value="done">Erledigt</option>
+            <option value="sent">Geschickt</option>
           </select>
         </label>
         <label>
@@ -96,8 +95,7 @@
           <select name="status">
             <option value="planned">Geplant</option>
             <option value="problem">Problem</option>
-            <option value="water">Wasser</option>
-            <option value="done">Erledigt</option>
+            <option value="sent">Geschickt</option>
           </select>
         </label>
         <label>Stops (frei beschreibbar, mit ; trennen)
@@ -119,14 +117,12 @@
           <select name="status" id="editTourStatus">
             <option value="planned">Geplant</option>
             <option value="problem">Problem</option>
-            <option value="water">Wasser</option>
-            <option value="done">Erledigt</option>
+            <option value="sent">Geschickt</option>
           </select>
         </label>
         <label>Ankunft Lade-/Entladestelle
           <input type="time" name="arrivalTime" id="editArrivalTime" />
         </label>
-        <label class="check-row"><input type="checkbox" name="driverNotified" id="editDriverNotified" /> Auftrag an Fahrer gesendet</label>
         <label class="check-row"><input type="checkbox" name="customerStatusRequired" id="editCustomerStatusRequired" /> Kundenstatus erforderlich</label>
         <label class="check-row"><input type="checkbox" name="customerStatusDone" id="editCustomerStatusDone" /> Kundenstatus gemeldet</label>
         <menu>
