@@ -247,17 +247,21 @@ function renderCard(tour) {
 
 function renderTruckEmptyHint(toursForTruck, dateIso) {
   const previousDay = addDaysIso(dateIso, -1);
-  const previousDayTours = toursForTruck
-    .filter((tour) => tour.toDate === previousDay)
+  const toursEndingPreviousDay = toursForTruck.filter((tour) => tour.toDate === previousDay);
+  if (toursEndingPreviousDay.length === 0) return "";
+
+  const toursStartedPreviousDay = toursEndingPreviousDay.filter((tour) => tour.fromDate === previousDay);
+  const candidateTours = toursStartedPreviousDay.length > 0 ? toursStartedPreviousDay : toursEndingPreviousDay;
+
+  const previousTour = candidateTours
     .sort((a, b) => {
       const updatedAtCompare = a.updatedAt.localeCompare(b.updatedAt);
       if (updatedAtCompare !== 0) return updatedAtCompare;
       return a.id.localeCompare(b.id);
-    });
+    })
+    .at(-1);
 
-  const previousTour = previousDayTours.at(-1);
   if (!previousTour) return "";
-
   return `<button type="button" class="empty-hint" data-empty-hint-tour-id="${previousTour.id}">Leer in ${previousTour.unloadLocation || "unbekannt"}<small>Ankunftszeit eintragen</small></button>`;
 }
 
