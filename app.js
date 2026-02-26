@@ -247,11 +247,11 @@ function renderCard(tour) {
 
 function renderTruckEmptyHint(toursForTruck, dateIso) {
   const previousDay = addDaysIso(dateIso, -1);
+  const toursStartedPreviousDay = toursForTruck.filter((tour) => tour.fromDate === previousDay);
   const toursEndingPreviousDay = toursForTruck.filter((tour) => tour.toDate === previousDay);
-  if (toursEndingPreviousDay.length === 0) return "";
 
-  const toursStartedPreviousDay = toursEndingPreviousDay.filter((tour) => tour.fromDate === previousDay);
   const candidateTours = toursStartedPreviousDay.length > 0 ? toursStartedPreviousDay : toursEndingPreviousDay;
+  if (candidateTours.length === 0) return "";
 
   const previousTour = candidateTours
     .sort((a, b) => {
