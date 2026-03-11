@@ -52,6 +52,27 @@ export DATABASE_URL='postgresql://postgres:DEIN_PASSWORT@127.0.0.1:5432/dispopla
 
 > Wichtig: Bei PostgreSQL-SCRAM muss ein Passwort als String übergeben werden. Falls dein User kein Passwort hat, setze explizit `DB_PASSWORD=''`.
 
+
+
+Falls dein DB-User **keine CREATE-Rechte** im Schema `public` hat, kannst du die Tabelle einmalig manuell anlegen und dann Auto-Create deaktivieren:
+
+```sql
+CREATE TABLE IF NOT EXISTS app_state (
+  id SMALLINT PRIMARY KEY DEFAULT 1,
+  state JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT single_row CHECK (id = 1)
+);
+
+GRANT SELECT, INSERT, UPDATE ON app_state TO postgres;
+```
+
+Dann beim Start:
+
+```bash
+export AUTO_CREATE_STATE_TABLE=false
+```
+
 ### 4) Starten
 
 ```bash
