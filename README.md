@@ -39,7 +39,7 @@ npm install
 export PORT=3004
 export DB_HOST=127.0.0.1
 export DB_PORT=5432
-export DB_USER=postgres
+export DB_USER=paletten_user
 export DB_PASSWORD='DEIN_PASSWORT'
 export DB_NAME=dispoplan
 ```
