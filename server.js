@@ -1,3 +1,6 @@
+require("dotenv").config();
+
+const password = process.env.DB_PASSWORD;
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
