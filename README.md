@@ -7,15 +7,100 @@ Desktop-first Dispositionsboard (Mo–So) mit:
 - Drag & Drop zwischen Tagen/Unternehmern
 - Filter (Suche, Status, Unternehmer)
 - Farbige Status-Badges
-- "Datenbank" für Unternehmer + Kennzeichen (persistiert in `localStorage`)
+- Datenhaltung in PostgreSQL (statt nur `localStorage`)
 - Account-Anlage und -Verwaltung
 - Freie Felder pro Tour (Stops + Notizen)
 - Echtzeit-Aktualisierung zwischen Tabs via `BroadcastChannel`
 
-## Start
+## Server-Setup für deinen Host
 
-```bash
-python3 -m http.server 4173
+Vorgaben:
+
+- Port: `3004`
+- Domain: `test.paletten-ms.de`
+- Datenbank: PostgreSQL, DB-Name `dispoplan`
+
+### 1) PostgreSQL vorbereiten
+
+```sql
+CREATE DATABASE dispoplan;
 ```
 
-Dann im Browser öffnen: `http://localhost:4173`
+### 2) App installieren
+
+```bash
+cd /workspace/DispoPlan
+npm install
+```
+
+### 3) Umgebungsvariablen setzen
+
+```bash
+export PORT=3004
+export DB_HOST=127.0.0.1
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD='DEIN_PASSWORT'
+export DB_NAME=dispoplan
+```
+
+Alternativ als Connection-String:
+
+```bash
+export DATABASE_URL='postgresql://postgres:DEIN_PASSWORT@127.0.0.1:5432/dispoplan'
+```
+
+> Wichtig: Bei PostgreSQL-SCRAM muss ein Passwort als String übergeben werden. Falls dein User kein Passwort hat, setze explizit `DB_PASSWORD=''`.
+
+
+
+Falls dein DB-User **keine CREATE-Rechte** im Schema `public` hat, kannst du die Tabelle einmalig manuell anlegen und dann Auto-Create deaktivieren:
+
+```sql
+CREATE TABLE IF NOT EXISTS app_state (
+  id SMALLINT PRIMARY KEY DEFAULT 1,
+  state JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT single_row CHECK (id = 1)
+);
+
+GRANT SELECT, INSERT, UPDATE ON app_state TO postgres;
+```
+
+Dann beim Start:
+
+```bash
+export AUTO_CREATE_STATE_TABLE=false
+```
+
+### 4) Starten
+
+```bash
+npm start
+```
+
+Danach läuft die App auf `http://127.0.0.1:3004`.
+
+## NGINX-Proxy für test.paletten-ms.de
+
+```nginx
+server {
+    listen 80;
+    server_name test.paletten-ms.de;
+
+    location / {
+        proxy_pass http://127.0.0.1:3004;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## API-Endpunkte
+
+- `GET /api/health` – DB-Verbindung prüfen
+- `GET /api/state` – kompletten Board-State laden
+- `PUT /api/state` – kompletten Board-State speichern
