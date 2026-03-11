@@ -39,10 +39,18 @@ npm install
 export PORT=3004
 export DB_HOST=127.0.0.1
 export DB_PORT=5432
-export DB_USER=paletten_user
+export DB_USER=postgres
 export DB_PASSWORD='DEIN_PASSWORT'
 export DB_NAME=dispoplan
 ```
+
+Alternativ als Connection-String:
+
+```bash
+export DATABASE_URL='postgresql://postgres:DEIN_PASSWORT@127.0.0.1:5432/dispoplan'
+```
+
+> Wichtig: Bei PostgreSQL-SCRAM muss ein Passwort als String übergeben werden. Falls dein User kein Passwort hat, setze explizit `DB_PASSWORD=''`.
 
 ### 4) Starten
 

@@ -3,19 +3,35 @@ const { Pool } = require('pg');
 const path = require('path');
 
 const PORT = Number(process.env.PORT || 3004);
-const DB_HOST = process.env.DB_HOST || '127.0.0.1';
-const DB_PORT = Number(process.env.DB_PORT || 5432);
-const DB_USER = process.env.DB_USER || 'postgres';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'dispoplan';
 
-const pool = new Pool({
-  host: DB_HOST,
-  port: DB_PORT,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  database: DB_NAME,
-});
+function createDbConfig() {
+  if (process.env.DATABASE_URL) {
+    return {
+      connectionString: process.env.DATABASE_URL,
+    };
+  }
+
+  const host = process.env.DB_HOST || '127.0.0.1';
+  const port = Number(process.env.DB_PORT || 5432);
+  const user = process.env.DB_USER || 'postgres';
+  const database = process.env.DB_NAME || 'dispoplan';
+
+  // SCRAM in node-postgres requires a string password value.
+  // Coerce explicitly so accidental non-string env assignment cannot break startup.
+  const rawPassword = process.env.DB_PASSWORD ?? process.env.PGPASSWORD ?? '';
+  const password = String(rawPassword);
+
+  return {
+    host,
+    port,
+    user,
+    password,
+    database,
+  };
+}
+
+const dbConfig = createDbConfig();
+const pool = new Pool(dbConfig);
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -78,6 +94,11 @@ app.get('*', (_req, res) => {
 
 initDb()
   .then(() => {
+    if (dbConfig.connectionString) {
+      console.log('Database config: using DATABASE_URL');
+    } else {
+      console.log(`Database config: ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database} (password: ${dbConfig.password ? 'set' : 'empty'})`);
+    }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`DispoPlan listening on port ${PORT}`);
     });
