@@ -7,6 +7,7 @@ const STATUS_META = {
 };
 
 const STORAGE_KEY = "dispoplan.v1";
+const API_STATE_URL = "/api/state";
 const channel = "BroadcastChannel" in window ? new BroadcastChannel("dispoplan-sync") : null;
 
 const initialState = {
@@ -20,10 +21,7 @@ const initialState = {
   weeks: {},
 };
 
-let state = loadState();
-ensureWeekExists(state.currentWeekKey);
-seedExampleTours(state.currentWeekKey);
-saveState();
+let state = structuredClone(initialState);
 
 const board = document.getElementById("board");
 const stats = document.getElementById("stats");
@@ -31,11 +29,23 @@ const weekLabel = document.getElementById("currentWeekLabel");
 const entrepreneurFilter = document.getElementById("entrepreneurFilter");
 
 bindEvents();
-render();
+bootstrap();
+
+async function bootstrap() {
+  state = await loadState();
+  ensureWeekExists(state.currentWeekKey);
+  seedExampleTours(state.currentWeekKey);
+  await saveState();
+  render();
+}
 
 function bindEvents() {
-  document.getElementById("prevWeekBtn").addEventListener("click", () => switchWeek(-1));
-  document.getElementById("nextWeekBtn").addEventListener("click", () => switchWeek(1));
+  document.getElementById("prevWeekBtn").addEventListener("click", () => {
+    switchWeek(-1);
+  });
+  document.getElementById("nextWeekBtn").addEventListener("click", () => {
+    switchWeek(1);
+  });
 
   document.getElementById("newTourBtn").addEventListener("click", () => {
     hydrateEntrepreneurOptions();
@@ -43,7 +53,7 @@ function bindEvents() {
   });
   document.getElementById("cancelTourDialog").addEventListener("click", () => document.getElementById("tourDialog").close());
 
-  document.getElementById("tourForm").addEventListener("submit", (event) => {
+  document.getElementById("tourForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
     const tour = {
@@ -57,7 +67,7 @@ function bindEvents() {
       updatedAt: new Date().toISOString(),
     };
     state.weeks[state.currentWeekKey].tours.push(tour);
-    persistAndRender();
+    await persistAndRender();
     event.target.reset();
     document.getElementById("tourDialog").close();
   });
@@ -66,7 +76,7 @@ function bindEvents() {
   document.getElementById("statusFilter").addEventListener("change", render);
   entrepreneurFilter.addEventListener("change", render);
 
-  document.getElementById("entrepreneurForm").addEventListener("submit", (event) => {
+  document.getElementById("entrepreneurForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
     state.entrepreneurs.push({
@@ -74,35 +84,35 @@ function bindEvents() {
       name: formData.get("name"),
       plate: formData.get("plate"),
     });
-    persistAndRender();
+    await persistAndRender();
     event.target.reset();
   });
 
-  document.getElementById("accountForm").addEventListener("submit", (event) => {
+  document.getElementById("accountForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
     state.accounts.push({ id: crypto.randomUUID(), username: formData.get("username"), role: formData.get("role") });
-    persistAndRender();
+    await persistAndRender();
     event.target.reset();
   });
 
   if (channel) {
-    channel.onmessage = ({ data }) => {
+    channel.onmessage = async ({ data }) => {
       if (data?.type === "state-updated") {
-        state = loadState();
+        state = await loadState();
         render();
       }
     };
   }
 }
 
-function switchWeek(offset) {
+async function switchWeek(offset) {
   const [year, week] = state.currentWeekKey.split("-KW").map(Number);
   const monday = isoWeekToDate(year, week);
   monday.setDate(monday.getDate() + offset * 7);
   state.currentWeekKey = getWeekKey(monday);
   ensureWeekExists(state.currentWeekKey);
-  persistAndRender();
+  await persistAndRender();
 }
 
 function render() {
@@ -216,7 +226,7 @@ function attachDndEvents() {
       cell.classList.add("drag-over");
     });
     cell.addEventListener("dragleave", () => cell.classList.remove("drag-over"));
-    cell.addEventListener("drop", (event) => {
+    cell.addEventListener("drop", async (event) => {
       event.preventDefault();
       cell.classList.remove("drag-over");
       const tourId = event.dataTransfer.getData("text/tour-id");
@@ -225,7 +235,7 @@ function attachDndEvents() {
       tour.dayIndex = Number(cell.dataset.dayIndex);
       tour.entrepreneurId = cell.dataset.entrepreneurId;
       tour.updatedAt = new Date().toISOString();
-      persistAndRender();
+      await persistAndRender();
     });
   });
 }
@@ -236,13 +246,13 @@ function renderEntrepreneurs() {
     .map((item) => `<li><span>${item.name} · ${item.plate}</span><button class="btn" data-remove-entrepreneur="${item.id}">Löschen</button></li>`)
     .join("");
   list.querySelectorAll("[data-remove-entrepreneur]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const id = button.dataset.removeEntrepreneur;
       state.entrepreneurs = state.entrepreneurs.filter((item) => item.id !== id);
       Object.values(state.weeks).forEach((week) => {
         week.tours = week.tours.filter((tour) => tour.entrepreneurId !== id);
       });
-      persistAndRender();
+      await persistAndRender();
     });
   });
 }
@@ -253,9 +263,9 @@ function renderAccounts() {
     .map((item) => `<li><span>${item.username} (${item.role})</span><button class="btn" data-remove-account="${item.id}">Löschen</button></li>`)
     .join("");
   list.querySelectorAll("[data-remove-account]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       state.accounts = state.accounts.filter((item) => item.id !== button.dataset.removeAccount);
-      persistAndRender();
+      await persistAndRender();
     });
   });
 }
@@ -286,30 +296,55 @@ function getFilteredTours() {
   });
 }
 
-function loadState() {
+async function loadState() {
+  try {
+    const response = await fetch(API_STATE_URL, { cache: "no-store" });
+    if (response.ok) {
+      const parsed = await response.json();
+      if (parsed && typeof parsed === "object") {
+        return normalizeState(parsed);
+      }
+    }
+  } catch {
+    // Fallback auf localStorage.
+  }
+
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return structuredClone(initialState);
   try {
-    const parsed = JSON.parse(raw);
-    return {
-      ...structuredClone(initialState),
-      ...parsed,
-      weeks: parsed.weeks || {},
-      entrepreneurs: parsed.entrepreneurs || [],
-      accounts: parsed.accounts || [],
-      vehicles: parsed.vehicles || [],
-    };
+    return normalizeState(JSON.parse(raw));
   } catch {
     return structuredClone(initialState);
   }
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function normalizeState(parsed) {
+  return {
+    ...structuredClone(initialState),
+    ...parsed,
+    weeks: parsed.weeks || {},
+    entrepreneurs: parsed.entrepreneurs || [],
+    accounts: parsed.accounts || [],
+    vehicles: parsed.vehicles || [],
+  };
 }
 
-function persistAndRender() {
-  saveState();
+async function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+  try {
+    await fetch(API_STATE_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+  } catch {
+    // Lokal bleibt der Zustand trotzdem erhalten.
+  }
+}
+
+async function persistAndRender() {
+  await saveState();
   if (channel) channel.postMessage({ type: "state-updated" });
   render();
 }
