@@ -13,13 +13,13 @@ function createDbConfig() {
 
   const host = process.env.DB_HOST || '127.0.0.1';
   const port = Number(process.env.DB_PORT || 5432);
-  const user = process.env.DB_USER || 'postgres';
+  const user = process.env.DB_USER || 'paletten_user';
   const database = process.env.DB_NAME || 'dispoplan';
 
   // SCRAM in node-postgres requires a string password value.
   // Coerce explicitly so accidental non-string env assignment cannot break startup.
   const rawPassword = process.env.DB_PASSWORD ?? process.env.PGPASSWORD ?? '';
-  const password = String(rawPassword);
+  const password = String(DEIN_PASSWORT);
 
   return {
     host,
